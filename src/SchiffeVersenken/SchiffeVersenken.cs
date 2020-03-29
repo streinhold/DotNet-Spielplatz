@@ -15,24 +15,37 @@ namespace SchiffeVersenken
         private int abgefeuerteSchüsse = 0;
         private int anzahlTreffer = 0;
         private int anzahlHinweise = 3;
+        private bool abbruchAngefordert = false;
 
         public void Main(string[] args)
         {
             DebugModus.ZeigeUngetroffeneSchiffe = (Environment.GetEnvironmentVariable("DEBUG") == "1");
+            int alteFensterBreite = Console.WindowWidth;
+            int alteFensterHöhe = Console.WindowHeight;
+            string alterFensterTitel = Console.Title;
+            Console.SetWindowSize(82, 36);
+            Console.Title = "Schiffe versenken";
             SetzeSchiffe();
             AusgabeSpielfeld();
             while (!Ende())
             {
-                Schießen();
-                AusgabeSpielfeld();
+                if (Schießen())
+                {
+                    AusgabeSpielfeld();
+                }
             }
-            Console.BackgroundColor = Farbschema.Dialog_Hintergrund;
-            Console.ForegroundColor = Farbschema.Meldung_Vordergrund;
-            Console.WriteLine("Herzlichen Glückwunsch! Du hast gewonnen!\nBis zum nächsten Mal! Drücke eine Taste.");
+            if (!abbruchAngefordert)
+            {
+                Console.BackgroundColor = Farbschema.Dialog_Hintergrund;
+                Console.ForegroundColor = Farbschema.Meldung_Vordergrund;
+                Console.WriteLine("Herzlichen Glückwunsch! Du hast gewonnen!\nBis zum nächsten Mal! Drücke eine Taste.");
+            }
             while (!Console.KeyAvailable)
             {
                 Thread.Yield();
             }
+            Console.SetWindowSize(alteFensterBreite, alteFensterHöhe);
+            Console.Title = alterFensterTitel;
             Console.ResetColor();
         }
 
@@ -58,20 +71,24 @@ namespace SchiffeVersenken
             return schiff;
         }
 
-        private void Schießen()
+        private bool Schießen()
         {
-            ErfrageKoordinaten();
-            ++abgefeuerteSchüsse;
-            foreach (Schiff schiff in schiffe)
+            if (ErfrageKoordinaten())
             {
-                if (schiff.Getroffen(eingabeX, eingabeY))
+                ++abgefeuerteSchüsse;
+                foreach (Schiff schiff in schiffe)
                 {
-                    ++anzahlTreffer;
+                    if (schiff.Getroffen(eingabeX, eingabeY))
+                    {
+                        ++anzahlTreffer;
+                    }
                 }
+                return true;
             }
+            return false;
         }
 
-        private void ErfrageKoordinaten()
+        private bool ErfrageKoordinaten()
         {
             while (true)
             {
@@ -90,8 +107,8 @@ namespace SchiffeVersenken
                 {
                     Console.ForegroundColor = Farbschema.Meldung_Vordergrund;
                     Console.WriteLine("Schade, dass Du schon aufhören willst.\nBis zum nächsten Mal.");
-                    Console.ResetColor();
-                    Environment.Exit(0);
+                    abbruchAngefordert = true;
+                    return false;
                 }
                 if (eingabeStr == "?")
                 {
@@ -103,7 +120,7 @@ namespace SchiffeVersenken
                         eingabeX = hinweis.X;
                         eingabeY = hinweis.Y;
                         --anzahlHinweise;
-                        return;
+                        return true;
                     }
                     Console.ForegroundColor = Farbschema.Fehlermeldung_Vordergrund;
                     Console.WriteLine("Du hast alle Hinweise verbraucht!");
@@ -121,7 +138,7 @@ namespace SchiffeVersenken
                             if (Int32.TryParse(eingabeYStr, out eingabeZahl) && eingabeZahl >= 0 && eingabeZahl < Spielfeldgröße)
                             {
                                 eingabeY = (int)(eingabeZahl == 0 ? 9 : eingabeZahl - 1);
-                                return;
+                                return true;
                             }
                         }
                     }
@@ -133,6 +150,10 @@ namespace SchiffeVersenken
 
         private bool Ende()
         {
+            if (abbruchAngefordert)
+            {
+                return true;
+            }
             foreach (Schiff schiff in schiffe)
             {
                 if (!schiff.Versenkt()) return false;
